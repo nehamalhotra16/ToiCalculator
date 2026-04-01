@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOI Rate Calculator - Precise Match</title>
+    <title>TOI Rate Calculator - Fail-Safe Build</title>
     <style>
         :root {
             --toi-red: #ed1c24;
@@ -13,7 +13,7 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             background-color: #f4f4f4;
             display: flex;
             justify-content: center;
@@ -31,7 +31,7 @@
         }
 
         .header { text-align: center; margin-bottom: 20px; }
-        #status { font-size: 11px; font-weight: bold; color: #888; }
+        #status { font-size: 11px; font-weight: bold; color: #888; margin-top: 5px; }
 
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 13px; }
@@ -64,18 +64,28 @@
 <div class="card">
     <div class="header">
         <h2><span style="color:var(--toi-red)">TOI</span> CALCULATOR</h2>
-        <div id="status">Connecting to Sheet...</div>
+        <div id="status">Connecting...</div>
     </div>
 
     <div class="form-group">
         <label>Vertical</label>
-        <select id="vertSelect"><option value="">-- Loading --</option></select>
+        <select id="vertSelect">
+            <option value="BFSI">BFSI</option>
+            <option value="RETAIL">RETAIL</option>
+            <option value="REAL ESTATE">REAL ESTATE</option>
+            <option value="EDUCATION">EDUCATION</option>
+        </select>
     </div>
 
     <div class="form-group">
         <label>Business Unit (BU)</label>
         <input list="buData" id="buInput" placeholder="Type BU Name..." oninput="calculate()">
-        <datalist id="buData"></datalist>
+        <datalist id="buData">
+            <option value="TOIM">
+            <option value="TOID + TOI">
+            <option value="TOIBG">
+            <option value="TOINOI">
+        </datalist>
     </div>
 
     <div class="form-group">
@@ -95,7 +105,7 @@
     </div>
 
     <div id="resBox" class="result-box">
-        <span style="font-size:10px; text-transform:uppercase;">Calculated Rate</span>
+        <span style="font-size:10px; text-transform:uppercase;">Calculated Estimate</span>
         <span id="calcVal" class="val-big">₹ 0</span>
     </div>
 
@@ -108,54 +118,42 @@
 <script>
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQu2U_CgqbATJ6z0t4dnEBfL4UTg0Fr65mNIAH1ZUDgLC7VH5X-qyzJS2CYaXJfMS6wEUY6V_D5fptT/pub?output=csv';
     
-    let sheetData = [];
+    // Backup data in case Sheet fails
+    let sheetData = [
+        { bu: "TOIM", pos: "FRONT PAGE", float: "50", actual: "810.46" },
+        { bu: "TOIM", pos: "PAGE 3", float: "50", actual: "578.94" },
+        { bu: "TOID + TOI", pos: "FRONT PAGE", float: "30", actual: "804.63" },
+        { bu: "TOID + TOI", pos: "PAGE 3", float: "30", actual: "574.74" }
+    ];
 
     async function init() {
         try {
             const res = await fetch(CSV_URL);
+            if (!res.ok) throw new Error();
             const text = await res.text();
             const rows = text.split(/\r?\n/).filter(r => r.trim() !== "");
             
             const buList = document.getElementById('buData');
             const buSet = new Set();
-            const vertSelect = document.getElementById('vertSelect');
-            const vertSet = new Set();
 
+            // Overwrite backup with live data
             sheetData = rows.slice(1).map(row => {
                 const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.replace(/^"|"$/g, '').trim());
-                return {
-                    bu: cols[0],       // Col A
-                    pos: cols[1],      // Col B
-                    float: cols[2],    // Col C
-                    actual: cols[3],   // Col D
-                    vert: cols[4]      // Col E (Assuming)
-                };
+                return { bu: cols[0], pos: cols[1], float: cols[2], actual: cols[3] };
             });
 
-            sheetData.forEach(item => {
-                if(item.bu) buSet.add(item.bu);
-                if(item.vert) vertSet.add(item.vert);
-            });
-
-            // Populate BU Datalist
+            buList.innerHTML = "";
+            sheetData.forEach(item => { if(item.bu) buSet.add(item.bu); });
             buSet.forEach(bu => {
                 const opt = document.createElement('option');
                 opt.value = bu;
                 buList.appendChild(opt);
             });
 
-            // Populate Vertical
-            vertSelect.innerHTML = '<option value="">-- Select Vertical --</option>';
-            vertSet.forEach(v => {
-                const vOpt = document.createElement('option');
-                vOpt.value = v; vOpt.text = v;
-                vertSelect.appendChild(vOpt);
-            });
-
             document.getElementById('status').innerText = "● LIVE DATA CONNECTED";
             document.getElementById('status').style.color = "green";
         } catch (e) {
-            document.getElementById('status').innerText = "● CONNECTION ERROR";
+            document.getElementById('status').innerText = "● OFFLINE MODE (Using Backups)";
         }
         updateSizes();
     }
@@ -184,7 +182,6 @@
         const pos = document.getElementById('pagePos').value;
         const sz = document.getElementById('sizeSelect').value;
 
-        // Find the specific row matching BU and Position
         const match = sheetData.find(d => d.bu === bu && d.pos === pos);
 
         if (!match) {
