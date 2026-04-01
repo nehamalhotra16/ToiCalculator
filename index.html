@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOI Rate Calculator - Fail-Safe Build</title>
+    <style>
+        :root {
+            --toi-red: #ed1c24;
+            --toi-dark: #222;
+            --success: #28a745;
+            --danger: #dc3545;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            width: 100%;
+            max-width: 450px;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border-top: 8px solid var(--toi-red);
+        }
+
+        .header { text-align: center; margin-bottom: 20px; }
+        #status { font-size: 11px; font-weight: bold; color: #888; margin-top: 5px; }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 13px; }
+        
+        input, select {
+            width: 100%; padding: 12px; border: 1px solid #ccc;
+            border-radius: 8px; font-size: 15px; box-sizing: border-box;
+        }
+
+        .result-box {
+            margin-top: 20px; padding: 20px; border-radius: 10px;
+            text-align: center; color: white; background-color: var(--toi-dark);
+            transition: background 0.3s ease;
+        }
+
+        .actual-box {
+            margin-top: 10px; padding: 15px; background: #f8f9fa;
+            border-radius: 10px; text-align: center; border: 1px solid #ddd;
+        }
+
+        .val-big { font-size: 32px; font-weight: bold; display: block; margin: 5px 0; }
+        .val-actual { font-size: 22px; font-weight: bold; color: var(--toi-dark); }
+        
+        .high-match { background-color: var(--success) !important; }
+        .low-match { background-color: var(--danger) !important; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="header">
+        <h2><span style="color:var(--toi-red)">TOI</span> CALCULATOR</h2>
+        <div id="status">Connecting...</div>
+    </div>
+
+    <div class="form-group">
+        <label>Vertical</label>
+        <select id="vertSelect">
+            <option value="BFSI">BFSI</option>
+            <option value="RETAIL">RETAIL</option>
+            <option value="REAL ESTATE">REAL ESTATE</option>
+            <option value="EDUCATION">EDUCATION</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Business Unit (BU)</label>
+        <input list="buData" id="buInput" placeholder="Type BU Name..." oninput="calculate()">
+        <datalist id="buData">
+            <option value="TOIM">
+            <option value="TOID + TOI">
+            <option value="TOIBG">
+            <option value="TOINOI">
+        </datalist>
+    </div>
+
+    <div class="form-group">
+        <label>Page Position</label>
+        <select id="pagePos" onchange="updateSizes()">
+            <option value="FRONT PAGE">FRONT PAGE</option>
+            <option value="PAGE 3">PAGE 3</option>
+            <option value="PAGE 5">PAGE 5</option>
+            <option value="RD">RD</option>
+            <option value="SP">SP</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Size</label>
+        <select id="sizeSelect" onchange="calculate()"></select>
+    </div>
+
+    <div id="resBox" class="result-box">
+        <span style="font-size:10px; text-transform:uppercase;">Calculated Estimate</span>
+        <span id="calcVal" class="val-big">₹ 0</span>
+    </div>
+
+    <div class="actual-box">
+        <span style="font-size:10px; text-transform:uppercase; color:#666">Actual Rate (Column D)</span>
+        <div id="actualVal" class="val-actual">₹ 0.00</div>
+    </div>
+</div>
+
+<script>
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQu2U_CgqbATJ6z0t4dnEBfL4UTg0Fr65mNIAH1ZUDgLC7VH5X-qyzJS2CYaXJfMS6wEUY6V_D5fptT/pub?output=csv';
+    
+    // Backup data in case Sheet fails
+    let sheetData = [
+        { bu: "TOIM", pos: "FRONT PAGE", float: "50", actual: "810.46" },
+        { bu: "TOIM", pos: "PAGE 3", float: "50", actual: "578.94" },
+        { bu: "TOID + TOI", pos: "FRONT PAGE", float: "30", actual: "804.63" },
+        { bu: "TOID + TOI", pos: "PAGE 3", float: "30", actual: "574.74" }
+    ];
+
+    async function init() {
+        try {
+            const res = await fetch(CSV_URL);
+            if (!res.ok) throw new Error();
+            const text = await res.text();
+            const rows = text.split(/\r?\n/).filter(r => r.trim() !== "");
+            
+            const buList = document.getElementById('buData');
+            const buSet = new Set();
+
+            // Overwrite backup with live data
+            sheetData = rows.slice(1).map(row => {
+                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.replace(/^"|"$/g, '').trim());
+                return { bu: cols[0], pos: cols[1], float: cols[2], actual: cols[3] };
+            });
+
+            buList.innerHTML = "";
+            sheetData.forEach(item => { if(item.bu) buSet.add(item.bu); });
+            buSet.forEach(bu => {
+                const opt = document.createElement('option');
+                opt.value = bu;
+                buList.appendChild(opt);
+            });
+
+            document.getElementById('status').innerText = "● LIVE DATA CONNECTED";
+            document.getElementById('status').style.color = "green";
+        } catch (e) {
+            document.getElementById('status').innerText = "● OFFLINE MODE (Using Backups)";
+        }
+        updateSizes();
+    }
+
+    function updateSizes() {
+        const p = document.getElementById('pagePos').value;
+        const s = document.getElementById('sizeSelect');
+        const m = {
+            "FRONT PAGE": ["823", "400", "240"],
+            "PAGE 3": ["1727", "823", "400", "240"],
+            "PAGE 5": ["1727", "823", "400", "240"],
+            "RD": ["1727", "823", "400", "240"],
+            "SP": ["1727", "823", "400", "240"]
+        };
+        s.innerHTML = "";
+        (m[p] || []).forEach(sz => {
+            const o = document.createElement('option');
+            o.value = sz; o.text = sz;
+            s.appendChild(o);
+        });
+        calculate();
+    }
+
+    function calculate() {
+        const bu = document.getElementById('buInput').value;
+        const pos = document.getElementById('pagePos').value;
+        const sz = document.getElementById('sizeSelect').value;
+
+        const match = sheetData.find(d => d.bu === bu && d.pos === pos);
+
+        if (!match) {
+            document.getElementById('calcVal').innerText = "₹ 0";
+            document.getElementById('actualVal').innerText = "₹ 0.00";
+            return;
+        }
+
+        const float = parseFloat(match.float) || 0;
+        const actual = parseFloat(match.actual) || 0;
+
+        const base = (float * 0.55) * 100000;
+        let res = 0;
+
+        if (pos === "FRONT PAGE") {
+            if (sz === "823") res = base / 823;
+            else if (sz === "400") res = (base * 0.6) / 400;
+            else res = (base * 0.6 * 0.7) / 240;
+        } else {
+            let mult = (pos === "RD") ? 0.68 : (pos === "SP") ? 0.765 : 0.85;
+            res = (base / 1727) * mult;
+        }
+
+        const final = Math.round(res);
+        document.getElementById('calcVal').innerText = "₹ " + final.toLocaleString('en-IN');
+        document.getElementById('actualVal').innerText = "₹ " + actual.toLocaleString('en-IN', {minimumFractionDigits: 2});
+
+        const box = document.getElementById('resBox');
+        box.classList.remove('high-match', 'low-match');
+        if (final > actual) box.classList.add('high-match');
+        else if (final < actual) box.classList.add('low-match');
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
