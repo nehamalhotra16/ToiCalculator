@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOI Rate Calculator - Live</title>
+    <style>
+        :root {
+            --toi-red: #ed1c24;
+            --toi-dark: #222;
+            --toi-gray: #f4f4f4;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--toi-gray);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .calculator-card {
+            background: white;
+            width: 100%;
+            max-width: 450px;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-top: 6px solid var(--toi-red);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h2 {
+            margin: 0;
+            color: var(--toi-dark);
+            text-transform: uppercase;
+        }
+
+        #syncStatus {
+            font-size: 11px;
+            margin-top: 5px;
+            font-weight: bold;
+            color: #d9534f; /* Initial alert color */
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+            background-color: #fff;
+        }
+
+        .result-container {
+            margin-top: 25px;
+            padding: 20px;
+            background-color: var(--toi-dark);
+            color: white;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .result-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            font-size: 34px;
+            font-weight: bold;
+        }
+
+        .footer-logo {
+            font-weight: 900;
+            color: var(--toi-red);
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<div class="calculator-card">
+    <div class="header">
+        <h2><span class="footer-logo">TOI</span> CALCULATOR</h2>
+        <div id="syncStatus">🔄 Connecting to Sheets...</div>
+    </div>
+
+    <div class="form-group">
+        <label>Vertical (Type to search)</label>
+        <input list="verticals" id="verticalInput" placeholder="Select Vertical...">
+        <datalist id="verticals">
+            <option value="AIRLINES"><option value="APPOINTMENTS"><option value="AUTOMOBILES">
+            <option value="B2B / IND GOODS"><option value="BFSI"><option value="CLOTHING / TEXTILES">
+            <option value="CONS.SOFT & OTC"><option value="CONSUMER DURABLES"><option value="CONSUMER SERVICES">
+            <option value="DIGITAL FINANCE & CONSULTING"><option value="E- BUSINESS"><option value="EDUCATION">
+            <option value="FOOD & BEVERAGES"><option value="GOVERNMENT"><option value="INTERIOR DÉCOR">
+            <option value="INTERNATIONAL"><option value="LUXURY"><option value="MEDIA ENT AND SPORTS">
+            <option value="OBIT / PERSONAL"><option value="PSU/B3"><option value="REAL ESTATE">
+            <option value="RETAIL"><option value="RETAIL HEALTHCARE & PHARMA"><option value="TECHNOLOGY">
+            <option value="TELECOM"><option value="TRAVEL AND TOURISM">
+        </datalist>
+    </div>
+
+    <div class="form-group">
+        <label>Business Unit (Type to search)</label>
+        <input list="bus" id="buInput" placeholder="Search BU (e.g. TOIM)..." oninput="calculateRate()">
+        <datalist id="bus">
+            <option value="TOIM" data-rate="50"><option value="TOID + TOI" data-rate="30">
+            <option value="TOINOI" data-rate="4"><option value="TOIDGR" data-rate="4.5">
+            <option value="TOIBG" data-rate="30"><option value="TOIPU" data-rate="12">
+            <option value="TOICH" data-rate="12"><option value="TOIH" data-rate="9">
+            <option value="TOIK" data-rate="10"><option value="TOIA" data-rate="7">
+            <option value="TOIL" data-rate="4"><option value="TOIJ" data-rate="2.8">
+            <option value="TOIKR" data-rate="2.8"><option value="TOICMB" data-rate="1.5">
+            <option value="TOIPAT" data-rate="1.7"><option value="TOIBBR" data-rate="2.0">
+            <option value="TOIGO" data-rate="1.5"><option value="TOIMP" data-rate="2.8">
+            <option value="NGTOI" data-rate="1.5"><option value="TOITMD" data-rate="1.5">
+            <option value="TOIKN" data-rate="0.60"><option value="MYS" data-rate="1.5">
+            <option value="MANG" data-rate="1.5">
+        </datalist>
+    </div>
+
+    <div class="form-group">
+        <label>Page Position</label>
+        <select id="page" onchange="updateSizes()">
+            <option value="FRONT PAGE">FRONT PAGE</option>
+            <option value="PAGE 3">PAGE 3</option>
+            <option value="PAGE 5">PAGE 5</option>
+            <option value="RD">RD</option>
+            <option value="SP">SP</option>
+            <option value="HYBRID J1">HYBRID J1</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Size</label>
+        <select id="size" onchange="calculateRate()"></select>
+    </div>
+
+    <div class="result-container">
+        <div class="result-label">ESTIMATED RATE</div>
+        <div id="rateDisplay" class="result-value">₹ 0</div>
+    </div>
+</div>
+
+<script>
+    // Your specific Google Sheet CSV URL
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQu2U_CgqbATJ6z0t4dnEBfL4UTg0Fr65mNIAH1ZUDgLC7VH5X-qyzJS2CYaXJfMS6wEUY6V_D5fptT/pub?output=csv';
+
+    const sizeMap = {
+        "FRONT PAGE": ["823", "400", "240"],
+        "PAGE 3": ["1727", "823", "400", "240", "<240"],
+        "PAGE 5": ["1727", "823", "400", "240", "<240"],
+        "RD": ["1727", "823", "400", "240", "<240"],
+        "SP": ["1727", "823", "400", "240", "<240"],
+        "HYBRID J1": ["1727"]
+    };
+
+    // Load live data from Google Sheets
+    async function loadLiveData() {
+        const status = document.getElementById('syncStatus');
+        try {
+            const response = await fetch(csvUrl);
+            const text = await response.text();
+            const rows = text.split(/\r?\n/).filter(r => r.trim() !== "");
+            
+            if(rows.length > 1) {
+                const buList = document.getElementById('bus');
+                buList.innerHTML = ''; // Clear built-in fallback data
+                
+                for (let i = 1; i < rows.length; i++) {
+                    const cols = rows[i].split(',');
+                    const name = cols[0].replace(/"/g, '').trim();
+                    const rate = cols[1].replace(/"/g, '').trim();
+                    if (name && !isNaN(rate)) {
+                        const opt = document.createElement('option');
+                        opt.value = name;
+                        opt.setAttribute('data-rate', rate);
+                        buList.appendChild(opt);
+                    }
+                }
+                status.innerText = "● LIVE RATES ACTIVE";
+                status.style.color = "#28a745";
+            }
+        } catch (err) {
+            status.innerText = "● USING BUILT-IN RATES (OFFLINE)";
+            status.style.color = "#f0ad4e";
+        }
+        updateSizes(); // Ensure sizes appear immediately
+    }
+
+    function updateSizes() {
+        const page = document.getElementById('page').value;
+        const sizeSelect = document.getElementById('size');
+        const sizes = sizeMap[page] || [];
+        
+        sizeSelect.innerHTML = '';
+        sizes.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s; opt.text = s;
+            sizeSelect.appendChild(opt);
+        });
+        calculateRate();
+    }
+
+    function calculateRate() {
+        const buName = document.getElementById('buInput').value;
+        const options = document.getElementById('bus').options;
+        let floating = 0;
+
+        // Find the floating rate for the BU entered by the user
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].value === buName) {
+                floating = parseFloat(options[i].getAttribute('data-rate'));
+                break;
+            }
+        }
+
+        if (!floating) {
+            document.getElementById('rateDisplay').innerText = "₹ 0";
+            return;
+        }
+
+        const page = document.getElementById('page').value;
+        const size = document.getElementById('size').value;
+        let result = 0;
+        const base = (floating * 0.55) * 100000;
+        const base1 = (floating * 0.85) * 100000;
+
+        // Math Logic from original file
+        if (page === "FRONT PAGE") {
+            if (size === "823") result = base / 823;
+            else if (size === "400") result = (base * 0.6) / 400;
+            else if (size === "240") result = (base * 0.6 * 0.7) / 240;
+            else if (size === "<240") result = ((base * 0.6 * 0.7) / 240) / 0.9;
+        } 
+        else if (page === "HYBRID J1") {
+            result = base1 / 1727; 
+        }
+        else if (page === "PAGE 3") {
+            if (size === "1727") result = base / 1727;
+            else if (size === "823") result = (base * 0.6) / 823;
+            else if (size === "400") result = (base * 0.6 * 0.6) / 400;
+            else if (size === "240") result = (base * 0.6 * 0.6 * 0.7) / 240;
+            else if (size === "<240") result = (((base * 0.6 * 0.6 * 0.7) / 240) / 0.9);
+        }
+        else {
+            let m = (page === "RD") ? (0.85 * 0.80) : (page === "SP") ? (0.85 * 0.90) : 0.85;
+            if (size === "1727") result = (base / 1727) * m;
+            else if (size === "823") result = (base / 823) * m * 0.6;
+            else if (size === "400") result = (base / 400) * m * 0.6 * 0.6;
+            else if (size === "240") result = (base / 240) * m * 0.6 * 0.6 * 0.7;
+            else if (size === "<240") result = ((base / 240) * m * 0.6 * 0.6 * 0.7) / 0.9;
+        }
+
+        document.getElementById('rateDisplay').innerText = "₹ " + Math.round(result).toLocaleString('en-IN');
+    }
+
+    // Start everything on page load
+    window.onload = loadLiveData;
+</script>
+
+</body>
+</html>
