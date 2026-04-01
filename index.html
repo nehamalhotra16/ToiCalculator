@@ -3,282 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOI Rate Calculator - Live</title>
+    <title>TOI Rate Calculator - Precise Match</title>
     <style>
         :root {
             --toi-red: #ed1c24;
             --toi-dark: #222;
-            --toi-gray: #f4f4f4;
+            --success: #28a745;
+            --danger: #dc3545;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--toi-gray);
-            margin: 0;
-            padding: 15px;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: #f4f4f4;
             display: flex;
             justify-content: center;
+            padding: 20px;
         }
 
-        .calculator-card {
+        .card {
             background: white;
             width: 100%;
             max-width: 450px;
             padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            border-top: 6px solid var(--toi-red);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border-top: 8px solid var(--toi-red);
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
+        .header { text-align: center; margin-bottom: 20px; }
+        #status { font-size: 11px; font-weight: bold; color: #888; }
 
-        .header h2 {
-            margin: 0;
-            color: var(--toi-dark);
-            text-transform: uppercase;
-        }
-
-        #syncStatus {
-            font-size: 11px;
-            margin-top: 5px;
-            font-weight: bold;
-            color: #d9534f; /* Initial alert color */
-        }
-
-        .form-group {
-            margin-bottom: 18px;
-        }
-
-        label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 13px; }
+        
         input, select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 16px;
-            box-sizing: border-box;
-            background-color: #fff;
+            width: 100%; padding: 12px; border: 1px solid #ccc;
+            border-radius: 8px; font-size: 15px; box-sizing: border-box;
         }
 
-        .result-container {
-            margin-top: 25px;
-            padding: 20px;
-            background-color: var(--toi-dark);
-            color: white;
-            border-radius: 8px;
-            text-align: center;
+        .result-box {
+            margin-top: 20px; padding: 20px; border-radius: 10px;
+            text-align: center; color: white; background-color: var(--toi-dark);
+            transition: background 0.3s ease;
         }
 
-        .result-label {
-            font-size: 12px;
-            text-transform: uppercase;
-            opacity: 0.8;
-            margin-bottom: 5px;
+        .actual-box {
+            margin-top: 10px; padding: 15px; background: #f8f9fa;
+            border-radius: 10px; text-align: center; border: 1px solid #ddd;
         }
 
-        .result-value {
-            font-size: 34px;
-            font-weight: bold;
-        }
-
-        .footer-logo {
-            font-weight: 900;
-            color: var(--toi-red);
-            font-style: italic;
-        }
+        .val-big { font-size: 32px; font-weight: bold; display: block; margin: 5px 0; }
+        .val-actual { font-size: 22px; font-weight: bold; color: var(--toi-dark); }
+        
+        .high-match { background-color: var(--success) !important; }
+        .low-match { background-color: var(--danger) !important; }
     </style>
 </head>
 <body>
 
-<div class="calculator-card">
+<div class="card">
     <div class="header">
-        <h2><span class="footer-logo">TOI</span> CALCULATOR</h2>
-        <div id="syncStatus">🔄 Connecting to Sheets...</div>
+        <h2><span style="color:var(--toi-red)">TOI</span> CALCULATOR</h2>
+        <div id="status">Connecting to Sheet...</div>
     </div>
 
     <div class="form-group">
-        <label>Vertical (Type to search)</label>
-        <input list="verticals" id="verticalInput" placeholder="Select Vertical...">
-        <datalist id="verticals">
-            <option value="AIRLINES"><option value="APPOINTMENTS"><option value="AUTOMOBILES">
-            <option value="B2B / IND GOODS"><option value="BFSI"><option value="CLOTHING / TEXTILES">
-            <option value="CONS.SOFT & OTC"><option value="CONSUMER DURABLES"><option value="CONSUMER SERVICES">
-            <option value="DIGITAL FINANCE & CONSULTING"><option value="E- BUSINESS"><option value="EDUCATION">
-            <option value="FOOD & BEVERAGES"><option value="GOVERNMENT"><option value="INTERIOR DÉCOR">
-            <option value="INTERNATIONAL"><option value="LUXURY"><option value="MEDIA ENT AND SPORTS">
-            <option value="OBIT / PERSONAL"><option value="PSU/B3"><option value="REAL ESTATE">
-            <option value="RETAIL"><option value="RETAIL HEALTHCARE & PHARMA"><option value="TECHNOLOGY">
-            <option value="TELECOM"><option value="TRAVEL AND TOURISM">
-        </datalist>
+        <label>Vertical</label>
+        <select id="vertSelect"><option value="">-- Loading --</option></select>
     </div>
 
     <div class="form-group">
-        <label>Business Unit (Type to search)</label>
-        <input list="bus" id="buInput" placeholder="Search BU (e.g. TOIM)..." oninput="calculateRate()">
-        <datalist id="bus">
-            <option value="TOIM" data-rate="50"><option value="TOID + TOI" data-rate="30">
-            <option value="TOINOI" data-rate="4"><option value="TOIDGR" data-rate="4.5">
-            <option value="TOIBG" data-rate="30"><option value="TOIPU" data-rate="12">
-            <option value="TOICH" data-rate="12"><option value="TOIH" data-rate="9">
-            <option value="TOIK" data-rate="10"><option value="TOIA" data-rate="7">
-            <option value="TOIL" data-rate="4"><option value="TOIJ" data-rate="2.8">
-            <option value="TOIKR" data-rate="2.8"><option value="TOICMB" data-rate="1.5">
-            <option value="TOIPAT" data-rate="1.7"><option value="TOIBBR" data-rate="2.0">
-            <option value="TOIGO" data-rate="1.5"><option value="TOIMP" data-rate="2.8">
-            <option value="NGTOI" data-rate="1.5"><option value="TOITMD" data-rate="1.5">
-            <option value="TOIKN" data-rate="0.60"><option value="MYS" data-rate="1.5">
-            <option value="MANG" data-rate="1.5">
-        </datalist>
+        <label>Business Unit (BU)</label>
+        <input list="buData" id="buInput" placeholder="Type BU Name..." oninput="calculate()">
+        <datalist id="buData"></datalist>
     </div>
 
     <div class="form-group">
         <label>Page Position</label>
-        <select id="page" onchange="updateSizes()">
+        <select id="pagePos" onchange="updateSizes()">
             <option value="FRONT PAGE">FRONT PAGE</option>
             <option value="PAGE 3">PAGE 3</option>
             <option value="PAGE 5">PAGE 5</option>
             <option value="RD">RD</option>
             <option value="SP">SP</option>
-            <option value="HYBRID J1">HYBRID J1</option>
         </select>
     </div>
 
     <div class="form-group">
         <label>Size</label>
-        <select id="size" onchange="calculateRate()"></select>
+        <select id="sizeSelect" onchange="calculate()"></select>
     </div>
 
-    <div class="result-container">
-        <div class="result-label">ESTIMATED RATE</div>
-        <div id="rateDisplay" class="result-value">₹ 0</div>
+    <div id="resBox" class="result-box">
+        <span style="font-size:10px; text-transform:uppercase;">Calculated Rate</span>
+        <span id="calcVal" class="val-big">₹ 0</span>
+    </div>
+
+    <div class="actual-box">
+        <span style="font-size:10px; text-transform:uppercase; color:#666">Actual Rate (Column D)</span>
+        <div id="actualVal" class="val-actual">₹ 0.00</div>
     </div>
 </div>
 
 <script>
-    // Your specific Google Sheet CSV URL
-    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQu2U_CgqbATJ6z0t4dnEBfL4UTg0Fr65mNIAH1ZUDgLC7VH5X-qyzJS2CYaXJfMS6wEUY6V_D5fptT/pub?output=csv';
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQu2U_CgqbATJ6z0t4dnEBfL4UTg0Fr65mNIAH1ZUDgLC7VH5X-qyzJS2CYaXJfMS6wEUY6V_D5fptT/pub?output=csv';
+    
+    let sheetData = [];
 
-    const sizeMap = {
-        "FRONT PAGE": ["823", "400", "240"],
-        "PAGE 3": ["1727", "823", "400", "240", "<240"],
-        "PAGE 5": ["1727", "823", "400", "240", "<240"],
-        "RD": ["1727", "823", "400", "240", "<240"],
-        "SP": ["1727", "823", "400", "240", "<240"],
-        "HYBRID J1": ["1727"]
-    };
-
-    // Load live data from Google Sheets
-    async function loadLiveData() {
-        const status = document.getElementById('syncStatus');
+    async function init() {
         try {
-            const response = await fetch(csvUrl);
-            const text = await response.text();
+            const res = await fetch(CSV_URL);
+            const text = await res.text();
             const rows = text.split(/\r?\n/).filter(r => r.trim() !== "");
             
-            if(rows.length > 1) {
-                const buList = document.getElementById('bus');
-                buList.innerHTML = ''; // Clear built-in fallback data
-                
-                for (let i = 1; i < rows.length; i++) {
-                    const cols = rows[i].split(',');
-                    const name = cols[0].replace(/"/g, '').trim();
-                    const rate = cols[1].replace(/"/g, '').trim();
-                    if (name && !isNaN(rate)) {
-                        const opt = document.createElement('option');
-                        opt.value = name;
-                        opt.setAttribute('data-rate', rate);
-                        buList.appendChild(opt);
-                    }
-                }
-                status.innerText = "● LIVE RATES ACTIVE";
-                status.style.color = "#28a745";
-            }
-        } catch (err) {
-            status.innerText = "● USING BUILT-IN RATES (OFFLINE)";
-            status.style.color = "#f0ad4e";
+            const buList = document.getElementById('buData');
+            const buSet = new Set();
+            const vertSelect = document.getElementById('vertSelect');
+            const vertSet = new Set();
+
+            sheetData = rows.slice(1).map(row => {
+                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.replace(/^"|"$/g, '').trim());
+                return {
+                    bu: cols[0],       // Col A
+                    pos: cols[1],      // Col B
+                    float: cols[2],    // Col C
+                    actual: cols[3],   // Col D
+                    vert: cols[4]      // Col E (Assuming)
+                };
+            });
+
+            sheetData.forEach(item => {
+                if(item.bu) buSet.add(item.bu);
+                if(item.vert) vertSet.add(item.vert);
+            });
+
+            // Populate BU Datalist
+            buSet.forEach(bu => {
+                const opt = document.createElement('option');
+                opt.value = bu;
+                buList.appendChild(opt);
+            });
+
+            // Populate Vertical
+            vertSelect.innerHTML = '<option value="">-- Select Vertical --</option>';
+            vertSet.forEach(v => {
+                const vOpt = document.createElement('option');
+                vOpt.value = v; vOpt.text = v;
+                vertSelect.appendChild(vOpt);
+            });
+
+            document.getElementById('status').innerText = "● LIVE DATA CONNECTED";
+            document.getElementById('status').style.color = "green";
+        } catch (e) {
+            document.getElementById('status').innerText = "● CONNECTION ERROR";
         }
-        updateSizes(); // Ensure sizes appear immediately
+        updateSizes();
     }
 
     function updateSizes() {
-        const page = document.getElementById('page').value;
-        const sizeSelect = document.getElementById('size');
-        const sizes = sizeMap[page] || [];
-        
-        sizeSelect.innerHTML = '';
-        sizes.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = s; opt.text = s;
-            sizeSelect.appendChild(opt);
+        const p = document.getElementById('pagePos').value;
+        const s = document.getElementById('sizeSelect');
+        const m = {
+            "FRONT PAGE": ["823", "400", "240"],
+            "PAGE 3": ["1727", "823", "400", "240"],
+            "PAGE 5": ["1727", "823", "400", "240"],
+            "RD": ["1727", "823", "400", "240"],
+            "SP": ["1727", "823", "400", "240"]
+        };
+        s.innerHTML = "";
+        (m[p] || []).forEach(sz => {
+            const o = document.createElement('option');
+            o.value = sz; o.text = sz;
+            s.appendChild(o);
         });
-        calculateRate();
+        calculate();
     }
 
-    function calculateRate() {
-        const buName = document.getElementById('buInput').value;
-        const options = document.getElementById('bus').options;
-        let floating = 0;
+    function calculate() {
+        const bu = document.getElementById('buInput').value;
+        const pos = document.getElementById('pagePos').value;
+        const sz = document.getElementById('sizeSelect').value;
 
-        // Find the floating rate for the BU entered by the user
-        for (let i = 0; i < options.length; i++) {
-            if (options[i].value === buName) {
-                floating = parseFloat(options[i].getAttribute('data-rate'));
-                break;
-            }
-        }
+        // Find the specific row matching BU and Position
+        const match = sheetData.find(d => d.bu === bu && d.pos === pos);
 
-        if (!floating) {
-            document.getElementById('rateDisplay').innerText = "₹ 0";
+        if (!match) {
+            document.getElementById('calcVal').innerText = "₹ 0";
+            document.getElementById('actualVal').innerText = "₹ 0.00";
             return;
         }
 
-        const page = document.getElementById('page').value;
-        const size = document.getElementById('size').value;
-        let result = 0;
-        const base = (floating * 0.55) * 100000;
-        const base1 = (floating * 0.85) * 100000;
+        const float = parseFloat(match.float) || 0;
+        const actual = parseFloat(match.actual) || 0;
 
-        // Math Logic from original file
-        if (page === "FRONT PAGE") {
-            if (size === "823") result = base / 823;
-            else if (size === "400") result = (base * 0.6) / 400;
-            else if (size === "240") result = (base * 0.6 * 0.7) / 240;
-            else if (size === "<240") result = ((base * 0.6 * 0.7) / 240) / 0.9;
-        } 
-        else if (page === "HYBRID J1") {
-            result = base1 / 1727; 
-        }
-        else if (page === "PAGE 3") {
-            if (size === "1727") result = base / 1727;
-            else if (size === "823") result = (base * 0.6) / 823;
-            else if (size === "400") result = (base * 0.6 * 0.6) / 400;
-            else if (size === "240") result = (base * 0.6 * 0.6 * 0.7) / 240;
-            else if (size === "<240") result = (((base * 0.6 * 0.6 * 0.7) / 240) / 0.9);
-        }
-        else {
-            let m = (page === "RD") ? (0.85 * 0.80) : (page === "SP") ? (0.85 * 0.90) : 0.85;
-            if (size === "1727") result = (base / 1727) * m;
-            else if (size === "823") result = (base / 823) * m * 0.6;
-            else if (size === "400") result = (base / 400) * m * 0.6 * 0.6;
-            else if (size === "240") result = (base / 240) * m * 0.6 * 0.6 * 0.7;
-            else if (size === "<240") result = ((base / 240) * m * 0.6 * 0.6 * 0.7) / 0.9;
+        const base = (float * 0.55) * 100000;
+        let res = 0;
+
+        if (pos === "FRONT PAGE") {
+            if (sz === "823") res = base / 823;
+            else if (sz === "400") res = (base * 0.6) / 400;
+            else res = (base * 0.6 * 0.7) / 240;
+        } else {
+            let mult = (pos === "RD") ? 0.68 : (pos === "SP") ? 0.765 : 0.85;
+            res = (base / 1727) * mult;
         }
 
-        document.getElementById('rateDisplay').innerText = "₹ " + Math.round(result).toLocaleString('en-IN');
+        const final = Math.round(res);
+        document.getElementById('calcVal').innerText = "₹ " + final.toLocaleString('en-IN');
+        document.getElementById('actualVal').innerText = "₹ " + actual.toLocaleString('en-IN', {minimumFractionDigits: 2});
+
+        const box = document.getElementById('resBox');
+        box.classList.remove('high-match', 'low-match');
+        if (final > actual) box.classList.add('high-match');
+        else if (final < actual) box.classList.add('low-match');
     }
 
-    // Start everything on page load
-    window.onload = loadLiveData;
+    window.onload = init;
 </script>
-
 </body>
 </html>
