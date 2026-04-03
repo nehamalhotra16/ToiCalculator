@@ -7,30 +7,22 @@
     <style>
         :root { --toi-red: #ed1c24; --toi-dark: #1a1a1a; --toi-gold: #c5a059; }
         body { font-family: 'Segoe UI', sans-serif; background: #eef0f3; padding: 15px; margin: 0; display: flex; justify-content: center; }
-        
         .card { background: white; width: 100%; max-width: 450px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.15); overflow: hidden; border-top: 8px solid var(--toi-red); }
         .header { background: var(--toi-dark); color: white; padding: 20px; text-align: center; }
         .header h1 { margin: 0; font-size: 22px; text-transform: uppercase; letter-spacing: 2px; }
         .header p { margin: 5px 0 0; font-size: 10px; color: var(--toi-gold); text-transform: uppercase; }
-
         .content { padding: 20px; }
-        
         .form-group { margin-bottom: 20px; position: relative; }
         label { display: block; font-size: 11px; font-weight: 800; margin-bottom: 8px; color: #444; text-transform: uppercase; }
-        
         .combo-input { width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 12px; font-size: 15px; outline: none; box-sizing: border-box; background: #fff; transition: 0.3s; }
         .combo-input:focus { border-color: var(--toi-red); }
-
         .dropdown-list { position: absolute; width: 100%; max-height: 200px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 8px; z-index: 100; display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-top: 5px; }
         .dropdown-item { padding: 12px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f9f9f9; }
         .dropdown-item:hover { background: #fdf2f2; color: var(--toi-red); }
-
         select { width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 12px; font-size: 15px; background: #fff; outline: none; appearance: none; }
-
         .result { background: var(--toi-dark); color: white; padding: 30px; text-align: center; transition: background 0.4s ease; }
         .res-label { font-size: 11px; opacity: 0.7; text-transform: uppercase; letter-spacing: 2px; display: block; margin-bottom: 10px; }
         .res-val { font-size: 32px; font-weight: 900; display: block; }
-        
         .green-bg { background: #1b7a33 !important; }
         .red-bg { background: #b11b1b !important; }
     </style>
@@ -42,31 +34,26 @@
         <h1>TOI Calculator</h1>
         <p id="dataStatus">Connecting to Live Database...</p>
     </div>
-
     <div class="content">
         <div class="form-group">
             <label>1. Vertical</label>
             <input type="text" id="vInput" class="combo-input" placeholder="Type Vertical..." onfocus="showDrop('vDrop')" oninput="filterData('vInput', 'vDrop', 'v')">
             <div id="vDrop" class="dropdown-list"></div>
         </div>
-
         <div class="form-group">
             <label>2. Business Unit (BU)</label>
             <input type="text" id="buInput" class="combo-input" placeholder="Type BU..." onfocus="showDrop('buDrop')" oninput="filterData('buInput', 'buDrop', 'bu')">
             <div id="buDrop" class="dropdown-list"></div>
         </div>
-
         <div class="form-group">
             <label>3. Page Position</label>
             <select id="pSelect" onchange="updateSizes()"><option value="">Select BU First</option></select>
         </div>
-
         <div class="form-group">
             <label>4. Size</label>
             <select id="sSelect" onchange="calculate()"><option value="">Select Page First</option></select>
         </div>
     </div>
-
     <div id="resultCard" class="result">
         <span class="res-label">Calculated Rate</span>
         <span id="calcDisp" class="res-val">₹ 0</span>
@@ -75,19 +62,22 @@
 
 <script>
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQu2U_CgqbATJ6z0t4dnEBfL4UTg0Fr65mNIAH1ZUDgLC7VH5X-qyzJS2CYaXJfMS6wEUY6V_D5fptT/pub?output=csv';
-
     let activeData = [];
     let selection = { v: '', bu: '', pg: '', sz: '' };
 
-    // Function to fetch data from Google Sheet
     async function init() {
+        const statusElement = document.getElementById('dataStatus');
         try {
+            // Fetch with cache-buster to ensure fresh data
             const response = await fetch(CSV_URL + '&cache=' + Date.now());
-            if (!response.ok) throw new Error("Network issue");
-            const csvText = await response.text();
             
-            // Simple CSV Parser
+            if (!response.ok) {
+                throw new Error("HTTP error! Status: " + response.status);
+            }
+            
+            const csvText = await response.text();
             const rows = csvText.split('\n').slice(1);
+            
             activeData = rows.map(row => {
                 const columns = row.split(',');
                 return {
@@ -97,12 +87,18 @@
                     fl: parseFloat(columns[3]) || 0,
                     actual: parseFloat(columns[4]) || 0
                 };
-            }).filter(item => item.v);
+            }).filter(item => item.v && item.v !== "");
 
-            document.getElementById('dataStatus').innerText = "Live Database Active";
+            if (activeData.length === 0) throw new Error("No data found in sheet");
+            
+            statusElement.innerText = "Live Database Active";
+            statusElement.style.color = "#4CAF50";
         } catch (error) {
-            console.error("Failed to load live data, using backup", error);
-            document.getElementById('dataStatus').innerText = "Offline Mode - Backup Active";
+            console.error("Connection failed:", error);
+            statusElement.innerText = "Error: " + error.message;
+            statusElement.style.color = "#ff4444";
+            
+            // Fallback backup data
             activeData = [
                 {v:"AIRLINES", bu:"TOIM", pg:"FRONT PAGE", fl:50, actual:2000},
                 {v:"AUTOMOBILES", bu:"TOIM", pg:"FRONT PAGE", fl:30, actual:6000}
@@ -120,17 +116,14 @@
     function filterData(inputId, dropId, type) {
         const query = document.getElementById(inputId).value.toLowerCase();
         let list = [];
-        
         if (type === 'v') {
             list = [...new Set(activeData.map(d => d.v))];
         } else {
             list = [...new Set(activeData.filter(d => d.v === selection.v).map(d => d.bu))];
         }
-
         const filtered = list.filter(item => item.toLowerCase().includes(query)).sort();
         const drop = document.getElementById(dropId);
         drop.innerHTML = '';
-        
         filtered.forEach(item => {
             const div = document.createElement('div');
             div.className = 'dropdown-item';
@@ -141,7 +134,7 @@
                 if(type === 'v') { 
                     selection.v = item; 
                     resetBU(); 
-                    showDrop('buDrop'); // Open BU drop automatically
+                    showDrop('buDrop');
                 } else { 
                     selection.bu = item; 
                     updatePages(); 
@@ -155,6 +148,7 @@
         document.getElementById('buInput').value = '';
         selection.bu = '';
         document.getElementById('pSelect').innerHTML = '<option>Select BU First</option>';
+        document.getElementById('sSelect').innerHTML = '<option>Select Page First</option>';
     }
 
     function updatePages() {
@@ -177,7 +171,6 @@
         selection.sz = document.getElementById('sSelect').value;
         const match = activeData.find(d => d.v === selection.v && d.bu === selection.bu && d.pg === selection.pg);
         if (!match || !selection.sz) return;
-
         let calcRate = 0;
         const base = (match.fl * 0.5) * 100000;
         if (selection.pg === "FRONT PAGE") {
@@ -192,14 +185,11 @@
             else if (selection.sz === "240") calcRate = (baseP3 * 0.6 * 0.6 * 0.7);
             else calcRate = (((baseP3 * 0.6 * 0.6 * 0.7) / 240) / 0.9);
         }
-
         const finalCalc = Math.round(calcRate);
         document.getElementById('calcDisp').innerText = "₹ " + finalCalc.toLocaleString('en-IN');
-
         const card = document.getElementById('resultCard');
         card.classList.remove('green-bg', 'red-bg');
         if (match.actual > 0) {
-            // Color Logic: Green if Calculated > Actual, else Red
             finalCalc > match.actual ? card.classList.add('green-bg') : card.classList.add('red-bg');
         }
     }
@@ -210,7 +200,6 @@
         }
     }
 
-    // Start fetching data on load
     window.onload = init;
 </script>
 </body>
